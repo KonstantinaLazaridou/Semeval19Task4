@@ -33,6 +33,7 @@ for event, element in ET.iterparse(article_data):
             counter +=1;
         # decode this bytestring to avoid serialization errors
         article_text = ET.tostring(element, method='text').decode().strip();
+        article_text = article_text.replace("\n","");
         current_article_json = dict();
         current_article_json["id"] = article_id;
         current_article_json["published-at"] = article_date;

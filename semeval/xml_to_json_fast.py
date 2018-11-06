@@ -5,8 +5,14 @@ import time
 import datetime
 import pprint
 
+# article_data = "/home/konstantina/data/semeval/articles-training-20180831.xml";
+# ground_truth_data = "/home/konstantina/data/semeval/ground-truth-training-20180831.xml";
+
+# article_data = "/home/konstantina/data/semeval/articles-validation-20180831.xml";
 article_data = "/home/konstantina/data/semeval/articles-training-20180831.xml";
+# ground_truth_data = "/home/konstantina/data/semeval/ground-truth-validation-20180831.xml";
 ground_truth_data = "/home/konstantina/data/semeval/ground-truth-training-20180831.xml";
+
 
 # get labels
 labels_xml = minidom.parse(ground_truth_data);
@@ -30,27 +36,27 @@ for event, element in ET.iterparse(article_data):
                 article_date = item_tuple[1];
             elif counter == 2:
                 article_title = item_tuple[1];
-            counter +=1;
+            counter += 1;
         # decode this bytestring to avoid serialization errors
         article_text = ET.tostring(element, method='text').decode().strip();
         article_text = article_text.replace("\n","");
-        current_article_json = dict();
-        current_article_json["id"] = article_id;
-        current_article_json["published-at"] = article_date;
-        current_article_json["title"] = article_title;
-        current_article_json["text"] = article_text;
-        current_article_json["hyperpartisan"] = article_label_map[article_id];
-        # pprint.pprint(current_article_json);
-        articles_json["articles"].append(current_article_json);
-        if len(articles_json["articles"])%50000 == 0:
-            print("{} articles in dict".format(len(articles_json["articles"])));
+        # current_article_json = dict();
+        # current_article_json["id"] = article_id;
+        # current_article_json["published-at"] = article_date;
+        # current_article_json["title"] = article_title;
+        # current_article_json["text"] = article_text;
+        # current_article_json["hyperpartisan"] = article_label_map[article_id];
+        # # pprint.pprint(current_article_json);
+        # articles_json["articles"].append(current_article_json);
+        # if len(articles_json["articles"])%50000 == 0:
+        #     print("{} articles in dict".format(len(articles_json["articles"])));
         element.clear();
 print("execution time: {}".format(str(datetime.timedelta(seconds=time.time() - start_time))));
 print("got data");
-json_file_name = "/home/konstantina/data/semeval/" + \
-                 article_data.split("/")[len(article_data.split("/"))-1] + ".json";
-with open(json_file_name, 'w', encoding='utf-8') as outputf:
-    json.dump(articles_json["articles"], outputf, indent=3);
-print("wrote data as json");
+# json_file_name = "/home/konstantina/data/semeval/" + \
+#                  article_data.split("/")[len(article_data.split("/"))-1] + ".json";
+# with open(json_file_name + time.time(), 'w', encoding='utf-8') as outputf:
+#     json.dump(articles_json["articles"], outputf, indent=3);
+# print("wrote data as json");
 
 

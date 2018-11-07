@@ -81,8 +81,8 @@ def compute_one_hot_encoding():
         scaler = preprocessing.StandardScaler().fit(X_train_oh);
         X_train_oh = scaler.transform(X_train_oh);
         X_test_oh = scaler.transform(X_test_oh);
-        print("X train widx mean: {}".format(scaler.mean_));
-        print("X train widx scale: {}".format(scaler.scale_));
+        # print("X train widx mean: {}".format(scaler.mean_));
+        # print("X train widx scale: {}".format(scaler.scale_));
     # change numpy arrays to list of lists
     X_train_oh = X_train_oh.tolist();
     X_test_oh = X_test_oh.tolist();
@@ -212,6 +212,22 @@ model = Sequential();
 embedding_layer = set_up_embedding();
 model.add(embedding_layer);
 # model.add(Dropout(0.2));
+# hidden layers
+model.add(Dense(10, input_shape=(int(float(args.maximum_sequence_length)),), activation='relu'));
+# model.add(Dropout(0.2));
+model.add(Dense(256, activation='sigmoid'));
+# model.add(Dropout(0.2));
+model.add(Dense(2, activation='softmax'));
+# output layer
+model.add(Flatten());
+model.add(Dense(2, activation='sigmoid'));  # alternatively, one output dimension with binary_crossentropy
+Y_pred_list, Y_test, pos_label = run_keras_model(model);
+compute_confusion_matrix(result=pd.DataFrame(data={"predicted": Y_pred_list, "actual": Y_test}), pos_label=pos_label);
+
+# Fully connected feed forward network
+model = Sequential();
+model.add(embedding_layer);
+# model.add(Dropout(0.2));
 # TODO try direction and pooling
 model.add(LSTM(32, kernel_initializer='random_uniform',
                 bias_initializer='zeros', return_sequences=True,
@@ -224,22 +240,6 @@ model.add(LSTM(128, kernel_initializer='random_uniform',
                 bias_initializer='zeros', return_sequences=True,
                 dropout=0.2, recurrent_dropout=0.2));
 # model.add(Dropout(0.2));
-model.add(Flatten());
-model.add(Dense(2, activation='sigmoid'));  # alternatively, one output dimension with binary_crossentropy
-Y_pred_list, Y_test, pos_label = run_keras_model(model);
-compute_confusion_matrix(result=pd.DataFrame(data={"predicted": Y_pred_list, "actual": Y_test}), pos_label=pos_label);
-
-# Fully connected feed forward network
-model = Sequential();
-model.add(embedding_layer);
-# model.add(Dropout(0.2));
-# hidden layers
-model.add(Dense(10, input_shape=(int(float(args.max_sequence_length)),), activation='relu'));
-# model.add(Dropout(0.2));
-model.add(Dense(256, activation='sigmoid'));
-# model.add(Dropout(0.2));
-model.add(Dense(2, activation='softmax'));
-# output layer
 model.add(Flatten());
 model.add(Dense(2, activation='sigmoid'));  # alternatively, one output dimension with binary_crossentropy
 Y_pred_list, Y_test, pos_label = run_keras_model(model);

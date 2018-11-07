@@ -29,7 +29,7 @@ parser.add_argument("-mt", "--maximum_frequent_terms", help="for_tfidf");
 parser.add_argument("-mw", "--maximum_word_number", help="aka_input_dimension");
 parser.add_argument("-ed", "--embedding_dimension", help="aka_output_dimension");
 parser.add_argument("-ms", "--maximum_sequence_length");
-parser.add_argument("-bs", "--batch_size");
+parser.add_argument("-bs", "--batch_size"); # batch_size could be math.ceil(len(X_train)*0.1);
 parser.add_argument("-ep", "--epochs");
 parser.add_argument("-op", "--optimizer")
 # TODO: params for lowercase, stopwords, stemming, long docs, n-grams
@@ -113,7 +113,7 @@ def load_glove_embeddings():
                 coefs = np.asarray(values[1:], dtype='float32');
                 embeddings_index[word] = coefs;
     print('Found %s word vectors.' % len(embeddings_index));
-    embedding_matrix = np.zeros((len(word_index_training) + 1, args.embedding_dimension));
+    embedding_matrix = np.zeros((len(word_index_training) + 1, int(float(args.embedding_dimension))));
     for word, i in word_index_training.items():
         embedding_vector = embeddings_index.get(word);
         if embedding_vector is not None:
@@ -168,7 +168,7 @@ def set_up_embedding():
     elif "glove" in args.embedding_type:
         embeddings_matrix, input_dimension = load_glove_embeddings(args);
         return Embedding(input_dimension,
-                                    args.embedding_dimension,
+                         int(float(args.embedding_dimension)),
                                     weights=[embeddings_matrix],
                                     input_length=int(float(args.maximum_sequence_length)),
                                     trainable=False);
@@ -234,7 +234,7 @@ model = Sequential();
 model.add(embedding_layer);
 # model.add(Dropout(0.2));
 # hidden layers
-model.add(Dense(10, input_shape=(args.max_sequence_length,), activation='relu'));
+model.add(Dense(10, input_shape=(int(float(args.max_sequence_length)),), activation='relu'));
 # model.add(Dropout(0.2));
 model.add(Dense(256, activation='sigmoid'));
 # model.add(Dropout(0.2));

@@ -32,6 +32,8 @@ parser.add_argument("-ms", "--maximum_sequence_length");
 parser.add_argument("-bs", "--batch_size"); # batch_size could be math.ceil(len(X_train)*0.1);
 parser.add_argument("-ep", "--epochs");
 parser.add_argument("-op", "--optimizer")
+# parameter example:
+# -tr "data.txt" -ts "data.txt" -em "/glove.42B.300d.txt" -mt "1000" -mw "1000" -ms "1000" -bs "32" -ep "10" -op "sgd"
 # TODO: params for lowercase, stopwords, stemming, long docs, n-grams
 # TODO: params for learning rate, momentum, decay
 args = parser.parse_args();
@@ -45,6 +47,8 @@ y_test = list(); # test_targets
 def load_data():
     global x_train
     global x_test
+    global y_train
+    global y_test
     delimiter = "__label__";
     with open(args.training_filename, "r") as inputf:
         for line in inputf.readlines():
@@ -76,7 +80,7 @@ def process_labels():
 
 
 def compute_tf_idf():
-    count_vector = CountVectorizer(max_features=int(float(args.maximum_frequent_terms)), stop_words='english');  # max_df=0.95, min_df=2
+    count_vector = CountVectorizer(max_features=int(float(args.maximum_frequent_terms)), stop_words='english');
     x_train_vec = count_vector.fit_transform(x_train);
     tf_transformer = TfidfTransformer(use_idf=False).fit(x_train_vec);
     x_train_tf = tf_transformer.transform(x_train_vec);
@@ -144,53 +148,53 @@ def compute_one_hot_encoding_new():
     print("words in test set: {}".format(len(t.word_counts)));
     print("docs in test set: {}".format(t.document_count));
     test_idx = t.word_index;
-    x_test_oh = t.texts_to_matrix(x_train, mode='count');
+    print("training word index size: {}, test word index size: {}".format(len(training_idx), len(test_idx)));
+    x_test_oh = t.texts_to_matrix(x_test, mode='count');
     # if args.scale == "1":
     #     scaler = preprocessing.StandardScaler().fit(x_train_oh);
     #     x_train_oh = scaler.transform(x_train_oh);
     #     x_test_oh = scaler.transform(x_test_oh);
-    # ensure that all sequences in the list have the same length
-    # x_train_oh = sequence.pad_sequences(x_train_oh, maxlen=int(float(args.maximum_sequence_length)));
-    # x_test_oh = sequence.pad_sequences(x_test_oh, maxlen=int(float(args.maximum_sequence_length)));
     print("X_train_oh shape: {}".format(x_train_oh.shape));
     print("X_test_oh shape: {}".format(x_test_oh.shape));
-    return x_train_oh, x_test_oh, training_idx, test_idx;
+    return x_train_oh, x_test_oh, training_idx;
 
 
-def set_up_embedding_layer(word_index_training, word_index_test):
+def set_up_embedding_layer(word_idx_training):
     if args.embedding_type == "not-pretrained":
         return Embedding(input_dim=int(float(args.maximum_word_number)),
                          input_length=int(float(args.maximum_sequence_length)),
                          output_dim=int(float(args.embedding_dimension)));
     elif "glove" in args.embedding_type:
-        embeddings_matrix = load_glove_embedding(word_index_training, word_index_test);
-        return Embedding(input_dim=(len(word_index_test) + 1),
+        embeddings_matrix = load_glove_embedding(word_idx_training);
+        return Embedding(input_dim=(len(word_idx_training) + 1),
                          output_dim=300,
                          weights=[embeddings_matrix],
                          input_length=int(float(args.maximum_sequence_length)),
                          trainable=False);
 
 
-def load_glove_embedding(word_index_training, word_index_testing):
-    embeddings_index = {}
+def load_glove_embedding(word_idx_training):
+    embedding_index = dict();
+    # only 17849/23928 found
+    # TODO: stemming
     with open(args.embedding_type) as f:
         for line in f:
             values = line.split();
             word = values[0];
-            if word in word_index_training.keys() or word in word_index_testing.keys():
+            if word in word_idx_training.keys():
                 coefs = np.asarray(values[1:], dtype='float32');
-                embeddings_index[word] = coefs;
-    print('Found %s word vectors.' % len(embeddings_index));
-    embedding_matrix = np.zeros((len(word_index_training) + 1, 300));
-    for word, i in word_index_training.items():
-        embedding_vector = embeddings_index.get(word);
-        if embedding_vector is not None:
+                embedding_index[word] = coefs;
+    print("Number of word vectors: {}".format(len(embedding_index)));
+    embedding_matrix = np.zeros((len(word_idx_training) + 1, 300));
+    for word, i in word_idx_training.items():
+        embedding_vector = embedding_index.get(word);
+        if embedding_index.get(word) is not None:
             embedding_matrix[i] = embedding_vector;
     print("Embedding matrix shape: {}".format(embedding_matrix.shape));
     return embedding_matrix;
 
 
-def run_keras_model(model, x_train, y_train, x_test):
+def run_keras_model(model):
     # customize optimizer
     if args.optimizer == "sgd":
         sgd = optimizers.SGD(lr=0.001, clipvalue=0.5, momentum=0.0, decay=0.95, nesterov=False);
@@ -203,9 +207,9 @@ def run_keras_model(model, x_train, y_train, x_test):
     model.fit(x=x_train, y=y_train, batch_size=int(float(args.batch_size)), epochs=int(float(args.epochs)),
               shuffle=True);  # validation_split=0.2
     y_pred = model.predict(x_test);
-    print("Check predicted classes per data instance:");
-    for pred in y_pred:
-        print(pred);
+    # print("Check predicted classes per data instance:");
+    # for pred in y_pred:
+    #     print(pred);
     y_pred_list = list();
     # transform predicted classes to list that will be fed to the evaluation metric func
     for arr in y_pred:
@@ -217,7 +221,7 @@ def run_keras_model(model, x_train, y_train, x_test):
     print("Y_train: {}".format(y_train));
     print("Y_test: {}".format(y_test));
     print("Y_pred_list: {}".format(y_pred_list));
-    return y_pred_list, y_test, "1"
+    return y_pred_list, y_test, 1, 0
 
 
 if __name__ == '__main__':
@@ -228,7 +232,8 @@ if __name__ == '__main__':
     rf_clf = RandomForestClassifier(n_jobs=2, verbose=1, class_weight="balanced", random_state=0);
     rf_clf.fit(x_train_tf, y_train);
     clf_result = rf_clf.predict(x_test_tf);
-    compute_confusion_matrix(pd.DataFrame(data={"predicted": list(clf_result), "actual": y_test}), pos_label='true');
+    compute_confusion_matrix(pd.DataFrame(data={"predicted": list(clf_result), "actual": y_test}), pos_label='true',
+                             neg_label='false');
 
     # Fasttext
     fasttext_clf = fasttext.supervised(args.training_filename, 'model');

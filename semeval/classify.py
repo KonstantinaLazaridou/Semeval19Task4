@@ -236,17 +236,25 @@ if __name__ == '__main__':
     y_pred = list();
     for result in clf_result:
         y_pred.append(result[0]);
-    compute_confusion_matrix(pd.DataFrame(data={"predicted": y_pred, "actual": y_test}), pos_label='true');
+    compute_confusion_matrix(pd.DataFrame(data={"predicted": y_pred, "actual": y_test}), pos_label='true',
+                             neg_label='false');
 
     # Fully connected feed forward network
-    x_train, x_test, word_idx_training, word_idx_test = compute_one_hot_encoding_new();
+    x_train_oh, x_test_oh, word_idx_training = compute_one_hot_encoding_new();
+    x_train = x_train_oh;
+    x_test = x_test_oh;
     model = Sequential();
     # choose embedding;
-    # embedding_layer = set_up_embedding_layer(word_index_training=word_idx_training, word_index_test=word_idx_test);
-    # model.add(embedding_layer);
-    model.add(Dense(64, activation='relu', input_dim=int(float(args.maximum_word_number))));
+    embedding_layer = set_up_embedding_layer(word_idx_training=word_idx_training);
+    model.add(embedding_layer);
+    # model.add(Dense(32, activation='relu', input_dim=int(float(args.maximum_word_number))));
+    model.add(Dense(64, activation='relu'));
+    model.add(Dense(128, activation='relu'));
+    model.add(Dense(256, activation='relu'));
     # hidden layers
+    model.add(Flatten());
     model.add(Dense(2, activation='softmax'));  # alternatively, one output dimension with binary_crossentropy
     y_test_orginal = process_labels();
-    Y_pred_list, y_test, pos_label = run_keras_model(model, x_train, y_train, x_test);
-    compute_confusion_matrix(result=pd.DataFrame(data={"predicted": Y_pred_list, "actual": y_test_orginal}), pos_label=pos_label);
+    Y_pred_list, y_test, pos_label, neg_label = run_keras_model(model);
+    compute_confusion_matrix(result=pd.DataFrame(data={"predicted": Y_pred_list, "actual": y_test_orginal}),
+                             pos_label=pos_label, neg_label=neg_label);

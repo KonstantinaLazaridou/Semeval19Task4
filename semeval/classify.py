@@ -31,7 +31,9 @@ parser.add_argument("-ed", "--embedding_dimension", help="aka_output_dimension")
 parser.add_argument("-ms", "--maximum_sequence_length");
 parser.add_argument("-bs", "--batch_size"); # batch_size could be math.ceil(len(X_train)*0.1);
 parser.add_argument("-ep", "--epochs");
-parser.add_argument("-op", "--optimizer")
+parser.add_argument("-op", "--optimizer");
+parser.add_argument("-verb", "--verbose");
+
 # parameter example:
 # -tr "data.txt" -ts "data.txt" -em "/glove.42B.300d.txt" -mt "1000" -mw "1000" -ms "1000" -bs "32" -ep "10" -op "sgd"
 # TODO: params for lowercase, stopwords, stemming, long docs, n-grams
@@ -142,13 +144,15 @@ def compute_one_hot_encoding_new():
     print("words in training set: {}".format(len(t.word_counts)));
     print("docs in training set: {}".format(t.document_count));
     training_idx = t.word_index;
-    print("word frequencies in training set: {}".format(t.word_docs));
+    if args.verbose == "yes":
+        print("word frequencies in training set: {}".format(t.word_docs));
     x_train_oh = t.texts_to_matrix(x_train, mode='count');
     t.fit_on_texts(x_test);
     print("words in test set: {}".format(len(t.word_counts)));
     print("docs in test set: {}".format(t.document_count));
     test_idx = t.word_index;
-    print("training word index size: {}, test word index size: {}".format(len(training_idx), len(test_idx)));
+    if args.verbose == "yes":
+        print("training word index size: {}, test word index size: {}".format(len(training_idx), len(test_idx)));
     x_test_oh = t.texts_to_matrix(x_test, mode='count');
     # if args.scale == "1":
     #     scaler = preprocessing.StandardScaler().fit(x_train_oh);
@@ -159,21 +163,21 @@ def compute_one_hot_encoding_new():
     return x_train_oh, x_test_oh, training_idx;
 
 
-def set_up_embedding_layer(word_idx_training):
+def set_up_embedding_layer(word_idx_training, em_dim):
     if args.embedding_type == "not-pretrained":
         return Embedding(input_dim=int(float(args.maximum_word_number)),
                          input_length=int(float(args.maximum_sequence_length)),
                          output_dim=int(float(args.embedding_dimension)));
     elif "glove" in args.embedding_type:
-        embeddings_matrix = load_glove_embedding(word_idx_training);
+        embeddings_matrix = load_glove_embedding(word_idx_training, int(em_dim));
         return Embedding(input_dim=(len(word_idx_training) + 1),
-                         output_dim=300,
+                         output_dim=int(em_dim),
                          weights=[embeddings_matrix],
                          input_length=int(float(args.maximum_sequence_length)),
                          trainable=False);
 
 
-def load_glove_embedding(word_idx_training):
+def load_glove_embedding(word_idx_training, em_dim):
     embedding_index = dict();
     # only 17849/23928 found
     # TODO: stemming
@@ -185,7 +189,7 @@ def load_glove_embedding(word_idx_training):
                 coefs = np.asarray(values[1:], dtype='float32');
                 embedding_index[word] = coefs;
     print("Number of word vectors: {}".format(len(embedding_index)));
-    embedding_matrix = np.zeros((len(word_idx_training) + 1, 300));
+    embedding_matrix = np.zeros((len(word_idx_training) + 1, int(em_dim)));
     for word, i in word_idx_training.items():
         embedding_vector = embedding_index.get(word);
         if embedding_index.get(word) is not None:
@@ -194,61 +198,62 @@ def load_glove_embedding(word_idx_training):
     return embedding_matrix;
 
 
-def build_fully_connected_network(word_idx_training):
+def build_fully_connected_network(word_idx_training, em_dim):
     model = Sequential();
     # choose embedding;
-    embedding_layer = set_up_embedding_layer(word_idx_training=word_idx_training);
+    embedding_layer = set_up_embedding_layer(word_idx_training=word_idx_training, em_dim=em_dim);
     model.add(embedding_layer);
-    # model.add(Dense(32, activation='relu', input_dim=int(float(args.maximum_word_number))));
-    model.add(Dense(256, activation='relu'));
-    model.add(Dense(128, activation='relu'));
-    model.add(Dense(64, activation='relu'));
+    # model.add(Dense(256, activation='relu'));
+    # model.add(Dense(128, activation='relu'));
+    model.add(Dense(10, activation='relu'));
     # hidden layers
     model.add(Flatten());
-    model.add(Dense(2, activation='softmax'));  # alternatively, one output dimension with binary_crossentropy
+    model.add(Dense(2, activation='softmax'));
     return model;
 
 
-def build_lstm_network(word_idx_training):
+def build_lstm_network(word_idx_training, em_dim):
     model = Sequential();
     # choose embedding;
-    embedding_layer = set_up_embedding_layer(word_idx_training=word_idx_training);
+    embedding_layer = set_up_embedding_layer(word_idx_training=word_idx_training, em_dim=em_dim);
     model.add(embedding_layer);
-    model.add(Conv1D(128, 5, activation='relu'));
+    model.add(Conv1D(32, 5, activation='relu'));
     model.add(MaxPooling1D(pool_size=4));
-    model.add(LSTM(64));
+    model.add(LSTM(16));
     # hidden layers
-    model.add(Dense(2, activation='softmax'));  # alternatively, one output dimension with binary_crossentropy
+    model.add(Dense(2, activation='softmax'));
     return model;
 
 
-def build_bilstm_network(word_idx_training):
+def build_bilstm_network(word_idx_training, em_dim):
     model = Sequential();
     # choose embedding;
-    embedding_layer = set_up_embedding_layer(word_idx_training=word_idx_training);
+    embedding_layer = set_up_embedding_layer(word_idx_training=word_idx_training, em_dim=em_dim);
     model.add(embedding_layer);
-    model.add(Bidirectional(LSTM(128)));
+    model.add(Bidirectional(LSTM(16)));
     # hidden layers
-    model.add(Dense(2, activation='softmax'));  # alternatively, one output dimension with binary_crossentropy
+    model.add(Dense(2, activation='softmax'));
     return model;
 
 
 def run_keras_model(model):
     # customize optimizer
     if args.optimizer == "sgd":
-        sgd = optimizers.SGD(lr=0.001, clipvalue=0.5, momentum=0.0, decay=0.95, nesterov=False);
-        model.compile(loss='categorical_crossentropy', optimizer=sgd, metrics=['accuracy']);
+        # sgd = optimizers.SGD(lr=0.0001, clipvalue=0.5, momentum=0.0, decay=0.95, nesterov=False);
+        model.compile(loss='categorical_crossentropy', optimizer='sgd', metrics=['accuracy']);
     elif args.optimizer == "adam":
-        adam = optimizers.Adam(lr=0.0001, decay=0.95);
-        model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=['accuracy']);
+        # adam = optimizers.Adam(lr=0.001, decay=0.95);
+        model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy']);
+    # TODO: imbalanced loss function for FP and FN?
     print(model.summary());
     # compile, fit and predict
     model.fit(x=x_train, y=y_train, batch_size=int(float(args.batch_size)), epochs=int(float(args.epochs)),
               shuffle=True);  # validation_split=0.2
     y_pred = model.predict(x_test);
-    # print("Check predicted classes per data instance:");
-    # for pred in y_pred:
-    #     print(pred);
+    if args.verbose == "yes":
+        print("Check predicted classes per data instance:");
+        for pred in y_pred:
+            print(pred);
     y_pred_list = list();
     # transform predicted classes to list that will be fed to the evaluation metric func
     for arr in y_pred:
@@ -257,7 +262,8 @@ def run_keras_model(model):
             y_pred_list.append(0);
         else:
             y_pred_list.append(1);
-    print("Y_train: {}".format(y_train));
+    if args.verbose == "yes":
+        print("Y_train: {}".format(y_train));
     print("Y_test: {}".format(y_test));
     print("Y_pred_list: {}".format(y_pred_list));
     return y_pred_list, y_test, 1, 0
@@ -287,9 +293,9 @@ if __name__ == '__main__':
     x_train_oh, x_test_oh, word_idx_training = compute_one_hot_encoding_new();
     x_train = x_train_oh;
     x_test = x_test_oh;
-    model_1 = build_fully_connected_network(word_idx_training);
-    model_2 = build_lstm_network(word_idx_training);
-    model_3 = build_bilstm_network(word_idx_training);
+    model_1 = build_fully_connected_network(word_idx_training, em_dim=args.embedding_dimension);
+    model_2 = build_lstm_network(word_idx_training, em_dim=args.embedding_dimension);
+    model_3 = build_bilstm_network(word_idx_training, em_dim=args.embedding_dimension);
     y_test_orginal = process_labels();
     Y_pred_list, y_test, pos_label, neg_label = run_keras_model(model_1);
     compute_confusion_matrix(result=pd.DataFrame(data={"predicted": Y_pred_list, "actual": y_test_orginal}),

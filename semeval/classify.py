@@ -89,8 +89,8 @@ def compute_tf_idf():
     x_test_vec = count_vector.fit_transform(x_test);
     tf_transformer = TfidfTransformer(use_idf=False).fit(x_test_vec);
     x_test_tf = tf_transformer.transform(x_test_vec);
-    print("x_train_tf shape: {}\n".format(x_train_tf.shape));
-    print("x_test_tf shape: {}\n".format(x_test_tf.shape));
+    print("x_train_tf shape: {}".format(x_train_tf.shape));
+    print("x_test_tf shape: {}".format(x_test_tf.shape));
     return x_train_tf, x_test_tf;
 
 
